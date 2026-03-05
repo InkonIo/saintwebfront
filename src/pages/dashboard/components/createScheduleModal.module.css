@@ -1,0 +1,135 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(2px);
+}
+
+.modal {
+  background: #fff;
+  border-radius: 16px;
+  padding: 32px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.modalTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.closeBtn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: #f5f5f5;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #666;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.closeBtn:hover {
+  background: #eeeeee;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #444;
+}
+
+.required {
+  color: #e53935;
+}
+
+.input,
+.select {
+  height: 46px;
+  padding: 0 14px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
+  font-size: 15px;
+  color: #1a1a2e;
+  outline: none;
+  background: #fff;
+  width: 100%;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.input:focus,
+.select:focus {
+  border-color: #6c63ff;
+}
+
+.error {
+  color: #e53935;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.modalFooter {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.cancelBtn {
+  flex: 1;
+  height: 46px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 15px;
+  color: #666;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.cancelBtn:hover {
+  border-color: #aaa;
+}
+
+.submitBtn {
+  flex: 1;
+  height: 46px;
+  border: none;
+  border-radius: 10px;
+  background: #6c63ff;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.submitBtn:hover {
+  background: #574fd6;
+}
+
+.submitBtn:disabled {
+  background: #b0aaf5;
+  cursor: not-allowed;
+}
