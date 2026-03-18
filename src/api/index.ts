@@ -1,6 +1,6 @@
-const BASE_URL = 'https://examweb.up.railway.app/api/v1'
+// const BASE_URL = 'https://examweb.up.railway.app/api/v1'
 
-// const BASE_URL = 'http://localhost:8080/api/v1'
+const BASE_URL = 'http://localhost:8080/api/v1'
 
 const authHeaders = () => ({
   'Content-Type': 'application/json',
@@ -306,5 +306,35 @@ getAuditBySchedule: async (scheduleId: number): Promise<AuditLog[]> => {
   if (!res.ok) throw new Error('Failed to fetch audit')
   return res.json()
 },
+
+  // Password Reset
+  forgotPassword: async (email: string): Promise<void> => {
+    const res = await fetch(`${BASE_URL}/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+    if (!res.ok) throw new Error('Failed to send code')
+  },
+
+  verifyCode: async (email: string, code: string): Promise<string> => {
+    const res = await fetch(`${BASE_URL}/auth/verify-code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, code }),
+    })
+    if (!res.ok) throw new Error('Invalid code')
+    const data = await res.json()
+    return data.token
+  },
+
+  resetPassword: async (resetToken: string, newPassword: string): Promise<void> => {
+    const res = await fetch(`${BASE_URL}/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resetToken, newPassword }),
+    })
+    if (!res.ok) throw new Error('Failed to reset password')
+  },
 }
 
