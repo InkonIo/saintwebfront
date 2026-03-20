@@ -235,3 +235,324 @@
 .emptyText {
   font-size: 15px;
 }
+
+/* ── Loading ── */
+.loadingScreen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f6fa;
+}
+
+.loadingSpinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #e0e0e0;
+  border-top-color: #6c63ff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Stats ── */
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.statCard {
+  background: #fff;
+  border-radius: 14px;
+  padding: 20px 24px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  position: relative;
+  overflow: hidden;
+  animation: fadeUp 0.35s ease both;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.statNum {
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.statLabel {
+  font-size: 12px;
+  color: #9e9e9e;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-weight: 600;
+}
+
+.statAccent {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  opacity: 0.5;
+}
+
+/* ── Charts ── */
+.chartsRow {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.chartCard {
+  background: #fff;
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  animation: fadeUp 0.35s ease 0.15s both;
+}
+
+.chartTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: #9e9e9e;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 16px;
+}
+
+.donutWrap {
+  max-width: 180px;
+  margin: 0 auto;
+}
+
+.barWrap {
+  height: 180px;
+}
+
+/* ── List section ── */
+.listSection {
+  animation: fadeUp 0.35s ease 0.25s both;
+}
+
+.listHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.listTitle {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.listSub {
+  font-size: 12px;
+  color: #9e9e9e;
+  margin-top: 2px;
+}
+
+.listActions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.filterSelect {
+  padding: 8px 14px;
+  background: #fff;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 8px;
+  color: #444;
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+.filterSelect:focus { border-color: #6c63ff; }
+
+/* ── Card redesign ── */
+.cardNew {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+  border: 1.5px solid transparent;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  animation: fadeUp 0.3s ease both;
+}
+.cardNew:hover {
+  border-color: #ede9ff;
+  box-shadow: 0 4px 16px rgba(108,99,255,0.08);
+}
+
+.cardLeft { flex-shrink: 0; }
+
+.cardDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.cardBody { flex: 1; min-width: 0; }
+
+.cardTopNew {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.cardTitleNew {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.cardBranch {
+  font-size: 13px;
+  color: #9e9e9e;
+}
+
+.statusBadge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+.cardMetaNew {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: #bdbdbd;
+}
+
+.cardActionsNew {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.actionBtnNew {
+  padding: 7px 14px;
+  background: #fff;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.actionBtnNew:hover { border-color: #6c63ff; color: #6c63ff; }
+
+.actionBtnGreen { border-color: #c8e6c9 !important; color: #2e7d32 !important; }
+.actionBtnGreen:hover { background: #e8f5e9 !important; border-color: #4caf50 !important; }
+
+.actionBtnRed { border-color: #ffcdd2 !important; color: #c62828 !important; }
+.actionBtnRed:hover { background: #ffebee !important; border-color: #ef5350 !important; }
+
+.actionBtnOrange { border-color: #ffe0b2 !important; color: #e65100 !important; }
+.actionBtnOrange:hover { background: #fff3e0 !important; border-color: #ff9800 !important; }
+
+/* ── Modal ── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px);
+}
+
+.modal {
+  background: #fff;
+  border-radius: 16px;
+  padding: 32px;
+  width: 440px;
+  max-width: 90vw;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+}
+
+.modalTitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0 0 20px;
+}
+
+.modalLabel {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #1a1a2e;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+  font-family: inherit;
+  line-height: 1.5;
+  transition: border-color 0.2s;
+}
+.textarea:focus { border-color: #6c63ff; }
+
+.modalActions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.modalCancelBtn {
+  padding: 9px 18px;
+  background: #f5f5f5;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 8px;
+  color: #555;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.modalSubmitBtn {
+  padding: 9px 18px;
+  background: #f59e0b;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-family: inherit;
+}
+.modalSubmitBtn:hover { background: #d97706; }
+.modalSubmitBtn:disabled { opacity: 0.5; cursor: not-allowed; }

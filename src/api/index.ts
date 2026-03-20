@@ -336,5 +336,23 @@ getAuditBySchedule: async (scheduleId: number): Promise<AuditLog[]> => {
     })
     if (!res.ok) throw new Error('Failed to reset password')
   },
+  checkConflicts: async (id: number) => {
+    const res = await fetch(`${BASE_URL}/schedules/${id}/conflicts`, { headers: authHeaders() })
+    if (!res.ok) throw new Error('Failed')
+    return res.json()
+  },
+  getAnalyticsSummary: async (): Promise<Record<string, unknown>> => {
+  const res = await fetch(`${BASE_URL}/analytics/summary`, { headers: authHeaders() })
+  if (!res.ok) throw new Error('Failed')
+  return res.json()
+},
+
+exportExcel: (id: number) => {
+  window.open(`${BASE_URL}/schedules/${id}/export/excel?token=${localStorage.getItem('token')}`, '_blank')
+},
+
+exportPdf: (id: number) => {
+  window.open(`${BASE_URL}/schedules/${id}/export/pdf?token=${localStorage.getItem('token')}`, '_blank')
+},
 }
 

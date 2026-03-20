@@ -7,11 +7,20 @@ import Templates from './pages/templates/Templates'
 import ScheduleDetail from './pages/schedules/ScheduleDetail'
 import Audit from './pages/audit/audit'
 import Employees from './pages/employees/Employees'
+import MySchedule from './pages/my-schedule/MySchedule'
 import type { JSX } from 'react'
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
   const token = localStorage.getItem('token')
   return token ? children : <Navigate to="/login" replace />
+}
+
+function EmployeeRoute({ children }: { children: JSX.Element }) {
+  const token = localStorage.getItem('token')
+  const role = localStorage.getItem('role')
+  if (!token) return <Navigate to="/login" replace />
+  if (role !== 'EMPLOYEE') return <Navigate to="/dashboard" replace />
+  return children
 }
 
 function App() {
@@ -26,6 +35,7 @@ function App() {
         <Route path="/schedules/:id" element={<PrivateRoute><ScheduleDetail /></PrivateRoute>} />
         <Route path="/templates" element={<PrivateRoute><Templates /></PrivateRoute>} />
         <Route path="/audit" element={<PrivateRoute><Audit /></PrivateRoute>} />
+        <Route path="/my-schedule" element={<EmployeeRoute><MySchedule /></EmployeeRoute>} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>

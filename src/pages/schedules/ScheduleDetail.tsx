@@ -14,6 +14,14 @@ interface BranchEmployee {
   lastName: string
   position: string
 }
+
+interface Conflict {
+  employeeId: number
+  workDate: string
+  type: string
+  message: string
+}
+
 import styles from './scheduleDetail.module.css'
 
 const MONTH_NAMES = [
@@ -63,6 +71,7 @@ export default function ScheduleDetail() {
   const [loading, setLoading] = useState(true)
   const [cells, setCells] = useState<CellMap>({})
   const [dirty, setDirty] = useState(false)
+  const [conflicts, setConflicts] = useState<Conflict[]>([])
   const [saving, setSaving] = useState(false)
   const [showVersions, setShowVersions] = useState(false)
   const [revisionComment, setRevisionComment] = useState('')
@@ -84,7 +93,6 @@ export default function ScheduleDetail() {
       const map: CellMap = {}
       s.entries.forEach(e => { map[`${e.employeeId}_${e.workDate}`] = e.shiftType })
       setCells(map)
-      // Load branch employees so table shows even when entries are empty
       fetch(`${BASE_URL}/employees/branch/${s.branchId}`, { headers: authHeaders() })
         .then(r => r.ok ? r.json() : [])
         .then((emps: BranchEmployee[]) => setBranchEmployees(emps))
@@ -108,31 +116,30 @@ export default function ScheduleDetail() {
   const daysCount = getDaysInMonth(schedule.year, schedule.month)
   const days = Array.from({ length: daysCount }, (_, i) => i + 1)
 
-  // Build employees list: prefer branchEmployees (always full list),
-  // fall back to entries-derived list if branch fetch hasn't returned yet
   const employeeMap: Record<number, { firstName: string; lastName: string; position?: string }> = {}
-  // First seed from entries (in case branch fetch is slow)
   schedule.entries.forEach(e => {
     if (!employeeMap[e.employeeId])
       employeeMap[e.employeeId] = { firstName: e.employeeFirstName, lastName: e.employeeLastName }
   })
-  // Then override/add from branchEmployees (active employees of this branch)
   branchEmployees.forEach(e => {
     employeeMap[e.id] = { firstName: e.firstName, lastName: e.lastName, position: e.position }
   })
   const employees = Object.entries(employeeMap).map(([eid, info]) => ({ id: Number(eid), ...info }))
 
-  const canEdit   = role === 'MANAGER'  && (schedule.status === 'DRAFT' || schedule.status === 'REVISION')
-  const canSubmit = role === 'MANAGER'  && schedule.status === 'DRAFT'
-  const canApprove   = role === 'REVIEWER' && schedule.status === 'PENDING'
-  const canRevision  = role === 'REVIEWER' && schedule.status === 'PENDING'
-  const canArchive   = schedule.status === 'APPROVED'
+  const canEdit    = role === 'MANAGER'  && (schedule.status === 'DRAFT' || schedule.status === 'REVISION')
+  const canSubmit  = role === 'MANAGER'  && schedule.status === 'DRAFT'
+  const canApprove  = role === 'REVIEWER' && schedule.status === 'PENDING'
+  const canRevision = role === 'REVIEWER' && schedule.status === 'PENDING'
+  const canArchive  = schedule.status === 'APPROVED'
 
   const getDateStr = (day: number) => {
     const m = String(schedule.month).padStart(2, '0')
     const d = String(day).padStart(2, '0')
     return `${schedule.year}-${m}-${d}`
   }
+
+  const getCellConflict = (employeeId: number, dateStr: string) =>
+    conflicts.find(c => c.employeeId === employeeId && c.workDate === dateStr)
 
   const handleCellChange = (employeeId: number, day: number, value: string) => {
     setCells(prev => ({ ...prev, [`${employeeId}_${getDateStr(day)}` as CellKey]: value }))
@@ -147,11 +154,15 @@ export default function ScheduleDetail() {
           employeeId: emp.id,
           workDate: getDateStr(day),
           shiftType: cells[`${emp.id}_${getDateStr(day)}`] || '',
-        })).filter(e => e.shiftType !== '' && e.shiftType != null && e.shiftType !== undefined)
+        })).filter(e => e.shiftType !== '')
       )
       const updated = await api.updateEntries(schedule.id, { entries })
       setSchedule(updated)
       setDirty(false)
+
+      // Проверка конфликтов после сохранения
+      const foundConflicts = await api.checkConflicts(schedule.id)
+      setConflicts(foundConflicts)
     } catch { alert('Ошибка сохранения') }
     finally { setSaving(false) }
   }
@@ -187,7 +198,7 @@ export default function ScheduleDetail() {
   return (
     <div className={styles.page}>
 
-      {/* ── Top navbar ── */}
+      {/* ── Navbar ── */}
       <nav className={styles.navbar}>
         <button className={styles.backBtn} onClick={() => navigate(-1)}>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -195,15 +206,11 @@ export default function ScheduleDetail() {
           </svg>
           Назад
         </button>
-
         <div className={styles.navCenter}>
-          <span className={styles.navTitle}>
-            {MONTH_NAMES[schedule.month - 1]} {schedule.year}
-          </span>
+          <span className={styles.navTitle}>{MONTH_NAMES[schedule.month - 1]} {schedule.year}</span>
           <span className={styles.navSep}>·</span>
           <span className={styles.navBranch}>{schedule.branchName}</span>
         </div>
-
         <div className={styles.navActions}>
           {dirty && canEdit && (
             <button className={`${styles.btn} ${styles.btnSave}`} onClick={handleSave} disabled={saving}>
@@ -272,11 +279,7 @@ export default function ScheduleDetail() {
           <span className={styles.infoLabel}>Сотрудников</span>
           <span className={styles.infoValue}>{employees.length}</span>
         </div>
-        {canEdit && (
-          <div className={styles.editHint}>
-            ✏️ Режим редактирования активен
-          </div>
-        )}
+        {canEdit && <div className={styles.editHint}>✏️ Режим редактирования активен</div>}
       </div>
 
       {/* ── Revision notice ── */}
@@ -338,21 +341,38 @@ export default function ScheduleDetail() {
         <span className={styles.legendLabel}>Обозначения:</span>
         {Object.entries(SHIFT_COLORS).filter(([k]) => k !== '').map(([type, s]) => (
           <span key={type} className={styles.legendItem}>
-            <span className={styles.legendChip} style={{ background: s.bg, color: s.color }}>
-              {s.label}
-            </span>
-            <span className={styles.legendText}>
-              {type === 'DAY' ? 'Дневная' : type === 'NIGHT' ? 'Ночная' : 'Выходной'}
-            </span>
+            <span className={styles.legendChip} style={{ background: s.bg, color: s.color }}>{s.label}</span>
+            <span className={styles.legendText}>{type}</span>
           </span>
         ))}
-        <span className={styles.legendItem}>
-          <span className={styles.legendChip} style={{ background: '#f1f5f9', color: '#94a3b8' }}>—</span>
-          <span className={styles.legendText}>Не указано</span>
-        </span>
       </div>
 
-      {/* ── Schedule Table ── */}
+      {/* ── Конфликты ── */}
+      {conflicts.length > 0 && (
+        <div style={{
+          margin: '8px 24px',
+          padding: '14px 18px',
+          background: '#fff5f5',
+          border: '1.5px solid #fca5a5',
+          borderRadius: 10,
+        }}>
+          <div style={{ fontWeight: 700, color: '#991b1b', fontSize: 14, marginBottom: 8 }}>
+            ⚠️ Найдено конфликтов: {conflicts.length}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {conflicts.map((c, i) => {
+              const emp = employees.find(e => e.id === c.employeeId)
+              return (
+                <div key={i} style={{ fontSize: 13, color: '#7f1d1d' }}>
+                  • {emp?.lastName} {emp?.firstName} — {c.workDate}: {c.message}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Table ── */}
       {employees.length === 0 ? (
         <div className={styles.emptyState}>
           <div className={styles.emptyIcon}>📅</div>
@@ -381,7 +401,7 @@ export default function ScheduleDetail() {
               {employees.map((emp, rowIdx) => {
                 const workDays = days.filter(d => {
                   const v = cells[`${emp.id}_${getDateStr(d)}`] || ''
-                  return v === 'DAY' || v === 'NIGHT'
+                  return v !== '' && v !== 'В' && v !== 'О' && v !== 'Б' && v !== 'БС'
                 }).length
                 return (
                   <tr key={emp.id} className={`${styles.row} ${rowIdx % 2 === 1 ? styles.rowAlt : ''}`}>
@@ -402,20 +422,37 @@ export default function ScheduleDetail() {
                       const date = new Date(schedule.year, schedule.month - 1, d)
                       const isWeekend = date.getDay() === 0 || date.getDay() === 6
                       const shift = SHIFT_COLORS[value] || SHIFT_COLORS['']
+                      const conflict = getCellConflict(emp.id, getDateStr(d))
+
                       return (
-                        <td key={d} className={`${styles.tdCell} ${isWeekend ? styles.tdWeekend : ''}`}>
+                        <td
+                          key={d}
+                          className={`${styles.tdCell} ${isWeekend ? styles.tdWeekend : ''}`}
+                          style={conflict ? {
+                            background: '#fee2e2',
+                            outline: '2px solid #ef4444',
+                            position: 'relative'
+                          } : {}}
+                          title={conflict?.message}
+                        >
+                          {conflict && (
+                            <span style={{
+                              position: 'absolute', top: 1, right: 1,
+                              fontSize: 8, lineHeight: 1
+                            }}>⚠️</span>
+                          )}
                           {canEdit ? (
                             <select
                               className={styles.cellSelect}
-                              style={{ background: shift.bg, color: shift.color }}
+                              style={{ background: conflict ? '#fecaca' : shift.bg, color: conflict ? '#991b1b' : shift.color }}
                               value={value}
                               onChange={e => handleCellChange(emp.id, d, e.target.value)}
                             >
                               <option value="">—</option>
-                              <option value="9-18">9-18 (Дневная)</option>
-                              <option value="9-21">9-21 (Дневная +)</option>
-                              <option value="8-17">8-17 (Дневная)</option>
-                              <option value="8-20">8-20 (Дневная +)</option>
+                              <option value="9-18">9-18</option>
+                              <option value="9-21">9-21</option>
+                              <option value="8-17">8-17</option>
+                              <option value="8-20">8-20</option>
                               <option value="В">В — Выходной</option>
                               <option value="О">О — Отпуск</option>
                               <option value="Б">Б — Больничный</option>

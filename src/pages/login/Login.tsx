@@ -29,7 +29,7 @@ export default function Login() {
         localStorage.setItem('role', data.role)
         localStorage.setItem('username', data.username)
         localStorage.setItem('user', JSON.stringify(data))
-        window.location.href = '/dashboard'
+        window.location.href = data.role === 'EMPLOYEE' ? '/my-schedule' : '/dashboard'
 
       } else if (mode === 'register') {
         const data = await api.register({ username, email, password, role })
