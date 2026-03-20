@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api } from '../../api'
 import styles from '../login/login.module.css'
+import logo from "../../assets/android-chrome-192x192.png"
 
 type Mode = 'login' | 'register' | 'forgot' | 'verify' | 'reset'
 
@@ -100,7 +101,7 @@ export default function Login() {
       <div className={styles.card}>
 
         <div className={styles.header}>
-          <div className={styles.icon}>📅</div>
+          <img src={logo} alt="Logo" className={styles.icon} />
           <h1 className={styles.title}>{titles[mode]}</h1>
           <p className={styles.subtitle}>{subtitles[mode]}</p>
         </div>

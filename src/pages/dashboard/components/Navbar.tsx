@@ -2,6 +2,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
 import { api, type Notification } from '../../../api'
 import styles from './navbar.module.css'
+import logo from "../../../assets/android-chrome-192x192.png"
 
 export default function Navbar() {
   const navigate = useNavigate()
@@ -76,7 +77,7 @@ export default function Navbar() {
     <nav className={styles.navbar}>
       <div className={styles.left}>
         <div className={styles.logo}>
-          <div className={styles.logoIcon}>📅</div>
+          <img src={logo} alt="Logo" className={styles.logoIcon} />
           График работы
         </div>
         <div className={styles.tabs}>
