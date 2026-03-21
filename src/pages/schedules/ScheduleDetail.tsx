@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api, type ScheduleFull, type ScheduleShort, type ScheduleVersion } from '../../api/index'
+import styles from './scheduleDetail.module.css'
 
 const BASE_URL = 'http://localhost:8080/api/v1'
 const authHeaders = () => ({
@@ -22,8 +23,6 @@ interface Conflict {
   message: string
 }
 
-import styles from './scheduleDetail.module.css'
-
 const MONTH_NAMES = [
   'Январь','Февраль','Март','Апрель','Май','Июнь',
   'Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'
@@ -42,19 +41,23 @@ const STATUS_CLASS: Record<string, string> = {
   REVISION: 'revision', ARCHIVED: 'archived',
 }
 
-const SHIFT_COLORS: Record<string, { bg: string; color: string; label: string }> = {
-  '9-18': { bg: '#dbeafe', color: '#1d4ed8', label: 'Д' },
-  '9-21': { bg: '#bfdbfe', color: '#1d4ed8', label: 'Д+' },
-  '8-17': { bg: '#e0f2fe', color: '#0369a1', label: 'Д' },
-  '8-20': { bg: '#bae6fd', color: '#0369a1', label: 'Д+' },
-  'В':    { bg: '#f1f5f9', color: '#64748b', label: 'В' },
-  'О':    { bg: '#fef9c3', color: '#a16207', label: 'ОТ' },
-  'Б':    { bg: '#fee2e2', color: '#b91c1c', label: 'БЛ' },
-  'БС':   { bg: '#f3e8ff', color: '#7e22ce', label: 'БС' },
-  'К':    { bg: '#d1fae5', color: '#065f46', label: 'К' },
-  'Д':    { bg: '#fce7f3', color: '#9d174d', label: 'Д' },
-  '':     { bg: 'transparent', color: '#cbd5e1', label: '—' },
+// Каждая смена — уникальный цвет и понятная метка
+const SHIFTS: Record<string, { bg: string; text: string; label: string; desc: string }> = {
+  '9-18': { bg: '#DBEAFE', text: '#1E40AF', label: '9–18', desc: 'Дневная смена' },
+  '9-21': { bg: '#C7D2FE', text: '#3730A3', label: '9–21', desc: 'Длинная смена' },
+  '8-17': { bg: '#D1FAE5', text: '#065F46', label: '8–17', desc: 'Ранняя смена' },
+  '8-20': { bg: '#A7F3D0', text: '#064E3B', label: '8–20', desc: 'Длинная ранняя' },
+  'В':    { bg: '#F1F5F9', text: '#64748B', label: 'В',    desc: 'Выходной' },
+  'О':    { bg: '#FEF3C7', text: '#92400E', label: 'О',    desc: 'Отпуск' },
+  'Б':    { bg: '#FEE2E2', text: '#991B1B', label: 'Б',    desc: 'Больничный' },
+  'Д':    { bg: '#FCE7F3', text: '#9D174D', label: 'Д',    desc: 'Декрет' },
+  'БС':   { bg: '#EDE9FE', text: '#5B21B6', label: 'БС',   desc: 'Без содержания' },
+  'К':    { bg: '#ECFDF5', text: '#065F46', label: 'К',    desc: 'Командировка' },
+  '':     { bg: 'transparent', text: '#CBD5E1', label: '—', desc: '' },
 }
+
+const SPECIAL = new Set(['О','Б','Д','БС','К'])
+const DAY_NAMES = ['вс','пн','вт','ср','чт','пт','сб']
 
 type CellKey = `${number}_${string}`
 type CellMap = Record<CellKey, string>
@@ -62,6 +65,20 @@ type CellMap = Record<CellKey, string>
 function getDaysInMonth(year: number, month: number) {
   return new Date(year, month, 0).getDate()
 }
+
+function getInitials(first: string, last: string) {
+  return `${last[0] ?? ''}${first[0] ?? ''}`.toUpperCase()
+}
+
+// Генерируем уникальный цвет аватара по id
+const AVATAR_COLORS = [
+  { bg: '#EDE9FE', text: '#5B21B6' },
+  { bg: '#DBEAFE', text: '#1E40AF' },
+  { bg: '#D1FAE5', text: '#065F46' },
+  { bg: '#FCE7F3', text: '#9D174D' },
+  { bg: '#FEF3C7', text: '#92400E' },
+  { bg: '#ECFDF5', text: '#064E3B' },
+]
 
 export default function ScheduleDetail() {
   const { id } = useParams<{ id: string }>()
@@ -78,6 +95,7 @@ export default function ScheduleDetail() {
   const [showRevisionModal, setShowRevisionModal] = useState(false)
   const [actionLoading, setActionLoading] = useState('')
   const [branchEmployees, setBranchEmployees] = useState<BranchEmployee[]>([])
+  const [hoveredCol, setHoveredCol] = useState<number | null>(null)
 
   const user = JSON.parse(localStorage.getItem('user') || '{}')
   const role = user.role || localStorage.getItem('role') || ''
@@ -126,8 +144,8 @@ export default function ScheduleDetail() {
   })
   const employees = Object.entries(employeeMap).map(([eid, info]) => ({ id: Number(eid), ...info }))
 
-  const canEdit    = role === 'MANAGER'  && (schedule.status === 'DRAFT' || schedule.status === 'REVISION')
-  const canSubmit  = role === 'MANAGER'  && schedule.status === 'DRAFT'
+  const canEdit     = role === 'MANAGER'  && (schedule.status === 'DRAFT' || schedule.status === 'REVISION')
+  const canSubmit   = role === 'MANAGER'  && schedule.status === 'DRAFT'
   const canApprove  = role === 'REVIEWER' && schedule.status === 'PENDING'
   const canRevision = role === 'REVIEWER' && schedule.status === 'PENDING'
   const canArchive  = schedule.status === 'APPROVED'
@@ -159,8 +177,6 @@ export default function ScheduleDetail() {
       const updated = await api.updateEntries(schedule.id, { entries })
       setSchedule(updated)
       setDirty(false)
-
-      // Проверка конфликтов после сохранения
       const foundConflicts = await api.checkConflicts(schedule.id)
       setConflicts(foundConflicts)
     } catch { alert('Ошибка сохранения') }
@@ -193,7 +209,23 @@ export default function ScheduleDetail() {
     finally { setActionLoading('') }
   }
 
-  const DAY_NAMES = ['вс','пн','вт','ср','чт','пт','сб']
+  // Подсчёт рабочих дней для сотрудника
+  const getWorkDays = (empId: number) =>
+    days.filter(d => {
+      const v = cells[`${empId}_${getDateStr(d)}`] || ''
+      return v !== '' && v !== 'В' && !SPECIAL.has(v)
+    }).length
+
+  // Статистика по колонке (дню)
+  const getDayStats = (day: number) => {
+    const dateStr = getDateStr(day)
+    let working = 0
+    employees.forEach(emp => {
+      const v = cells[`${emp.id}_${dateStr}`] || ''
+      if (v && v !== 'В' && !SPECIAL.has(v)) working++
+    })
+    return working
+  }
 
   return (
     <div className={styles.page}>
@@ -201,134 +233,111 @@ export default function ScheduleDetail() {
       {/* ── Navbar ── */}
       <nav className={styles.navbar}>
         <button className={styles.backBtn} onClick={() => navigate(-1)}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
             <path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
           Назад
         </button>
         <div className={styles.navCenter}>
-          <span className={styles.navTitle}>{MONTH_NAMES[schedule.month - 1]} {schedule.year}</span>
-          <span className={styles.navSep}>·</span>
+          <span className={styles.navMonth}>{MONTH_NAMES[schedule.month - 1]}</span>
+          <span className={styles.navYear}>{schedule.year}</span>
+          <span className={styles.navDot} />
           <span className={styles.navBranch}>{schedule.branchName}</span>
         </div>
         <div className={styles.navActions}>
           {dirty && canEdit && (
             <button className={`${styles.btn} ${styles.btnSave}`} onClick={handleSave} disabled={saving}>
-              {saving ? 'Сохранение...' : '💾 Сохранить'}
+              {saving ? 'Сохранение...' : 'Сохранить'}
             </button>
           )}
-          {canSubmit && (
-            <button className={`${styles.btn} ${styles.btnPrimary}`}
+          {canSubmit && !dirty && (
+            <button className={`${styles.btn} ${styles.btnSubmit}`}
               onClick={() => doAction('submit')} disabled={actionLoading === 'submit'}>
-              {actionLoading === 'submit' ? '...' : '📤 На согласование'}
+              {actionLoading === 'submit' ? '...' : 'На согласование'}
             </button>
           )}
           {canApprove && (
             <button className={`${styles.btn} ${styles.btnApprove}`}
               onClick={() => doAction('approve')} disabled={actionLoading === 'approve'}>
-              {actionLoading === 'approve' ? '...' : '✅ Утвердить'}
+              {actionLoading === 'approve' ? '...' : 'Утвердить'}
             </button>
           )}
           {canRevision && (
-            <button className={`${styles.btn} ${styles.btnWarning}`}
+            <button className={`${styles.btn} ${styles.btnRevision}`}
               onClick={() => setShowRevisionModal(true)}>
-              🔄 На доработку
+              На доработку
             </button>
           )}
           {canArchive && (
-            <button className={`${styles.btn} ${styles.btnGray}`}
+            <button className={`${styles.btn} ${styles.btnArchive}`}
               onClick={() => doAction('archive')} disabled={actionLoading === 'archive'}>
-              {actionLoading === 'archive' ? '...' : '🗄 Архивировать'}
+              {actionLoading === 'archive' ? '...' : 'В архив'}
             </button>
           )}
           <button
-            className={`${styles.btn} ${styles.btnOutline} ${showVersions ? styles.btnOutlineActive : ''}`}
+            className={`${styles.btn} ${styles.btnHistory} ${showVersions ? styles.btnHistoryActive : ''}`}
             onClick={() => setShowVersions(!showVersions)}>
-            🕐 История {versions.length > 0 && <span className={styles.versionBadge}>{versions.length}</span>}
+            История
+            {versions.length > 0 && <span className={styles.historyBadge}>{versions.length}</span>}
           </button>
         </div>
       </nav>
 
-      {/* ── Info bar ── */}
-      <div className={styles.infoBar}>
-        <div className={styles.infoItem}>
-          <span className={styles.infoLabel}>Статус</span>
-          <span className={`${styles.statusBadge} ${styles[STATUS_CLASS[schedule.status]]}`}>
-            {STATUS_LABELS[schedule.status]}
-          </span>
+      {/* ── Status strip ── */}
+      <div className={styles.statusStrip}>
+        <span className={`${styles.statusPill} ${styles[STATUS_CLASS[schedule.status]]}`}>
+          {STATUS_LABELS[schedule.status]}
+        </span>
+        <div className={styles.stripMeta}>
+          <span>v{schedule.version}</span>
+          <span className={styles.stripDot} />
+          <span>{schedule.authorUsername}</span>
+          {schedule.templateName && <>
+            <span className={styles.stripDot} />
+            <span>{schedule.templateName}</span>
+          </>}
+          <span className={styles.stripDot} />
+          <span>{employees.length} сотр.</span>
         </div>
-        <div className={styles.infoDivider} />
-        <div className={styles.infoItem}>
-          <span className={styles.infoLabel}>Версия</span>
-          <span className={styles.infoValue}>v{schedule.version}</span>
-        </div>
-        <div className={styles.infoDivider} />
-        <div className={styles.infoItem}>
-          <span className={styles.infoLabel}>Автор</span>
-          <span className={styles.infoValue}>{schedule.authorUsername}</span>
-        </div>
-        {schedule.templateName && <>
-          <div className={styles.infoDivider} />
-          <div className={styles.infoItem}>
-            <span className={styles.infoLabel}>Шаблон</span>
-            <span className={styles.infoValue}>{schedule.templateName}</span>
-          </div>
-        </>}
-        <div className={styles.infoDivider} />
-        <div className={styles.infoItem}>
-          <span className={styles.infoLabel}>Сотрудников</span>
-          <span className={styles.infoValue}>{employees.length}</span>
-        </div>
-        {canEdit && <div className={styles.editHint}>✏️ Режим редактирования активен</div>}
+        {canEdit && <span className={styles.editBadge}>Редактирование</span>}
       </div>
 
       {/* ── Revision notice ── */}
       {schedule.status === 'REVISION' && versions.length > 0 && (() => {
         const last = versions[versions.length - 1]
         return last?.comment ? (
-          <div className={styles.revisionNotice}>
-            <span className={styles.revisionIcon}>💬</span>
+          <div className={styles.revisionBanner}>
+            <div className={styles.revisionBannerIcon}>!</div>
             <div>
-              <div className={styles.revisionTitle}>Комментарий проверяющего:</div>
-              <div className={styles.revisionText}>{last.comment}</div>
+              <div className={styles.revisionBannerTitle}>Комментарий проверяющего</div>
+              <div className={styles.revisionBannerText}>{last.comment}</div>
             </div>
           </div>
         ) : null
       })()}
 
-      {/* ── Version history ── */}
+      {/* ── Version history panel ── */}
       {showVersions && (
         <div className={styles.versionsPanel}>
-          <div className={styles.versionsPanelHeader}>
-            <h3 className={styles.versionsTitle}>📋 История версий</h3>
-            <button className={styles.closeBtn} onClick={() => setShowVersions(false)}>✕</button>
+          <div className={styles.versionsPanelHead}>
+            <span className={styles.versionsPanelTitle}>История версий</span>
+            <button className={styles.closePanelBtn} onClick={() => setShowVersions(false)}>✕</button>
           </div>
           {versions.length === 0 ? (
             <p className={styles.emptyVersions}>История пуста</p>
           ) : (
-            <div className={styles.versionsList}>
+            <div className={styles.versionList}>
               {[...versions].reverse().map((v, i) => (
-                <div key={v.id} className={`${styles.versionItem} ${i === 0 ? styles.versionItemLatest : ''}`}>
-                  <div className={styles.versionLeft}>
-                    <span className={styles.versionNum}>v{v.versionNumber}</span>
-                  </div>
-                  <div className={styles.versionRight}>
-                    <div className={styles.versionMeta}>
-                      <span className={`${styles.statusBadge} ${styles[STATUS_CLASS[v.status] || 'draft']}`}>
-                        {STATUS_LABELS[v.status] || v.status}
-                      </span>
-                      <span className={styles.versionUser}>{v.changedByUsername}</span>
-                      <span className={styles.versionDate}>
-                        {new Date(v.changedAt).toLocaleString('ru-RU')}
-                      </span>
-                    </div>
-                    {v.comment && (
-                      <div className={styles.versionComment}>
-                        <span className={styles.versionCommentIcon}>💬</span>
-                        {v.comment}
-                      </div>
-                    )}
-                  </div>
+                <div key={v.id} className={`${styles.versionRow} ${i === 0 ? styles.versionRowLatest : ''}`}>
+                  <span className={styles.versionNum}>v{v.versionNumber}</span>
+                  <span className={`${styles.versionStatus} ${styles[STATUS_CLASS[v.status] || 'draft']}`}>
+                    {STATUS_LABELS[v.status] || v.status}
+                  </span>
+                  <span className={styles.versionUser}>{v.changedByUsername}</span>
+                  <span className={styles.versionDate}>{new Date(v.changedAt).toLocaleString('ru-RU')}</span>
+                  {v.comment && (
+                    <div className={styles.versionComment}>{v.comment}</div>
+                  )}
                 </div>
               ))}
             </div>
@@ -336,41 +345,35 @@ export default function ScheduleDetail() {
         </div>
       )}
 
-      {/* ── Legend ── */}
-      <div className={styles.legendBar}>
-        <span className={styles.legendLabel}>Обозначения:</span>
-        {Object.entries(SHIFT_COLORS).filter(([k]) => k !== '').map(([type, s]) => (
-          <span key={type} className={styles.legendItem}>
-            <span className={styles.legendChip} style={{ background: s.bg, color: s.color }}>{s.label}</span>
-            <span className={styles.legendText}>{type}</span>
-          </span>
-        ))}
-      </div>
-
-      {/* ── Конфликты ── */}
+      {/* ── Conflicts ── */}
       {conflicts.length > 0 && (
-        <div style={{
-          margin: '8px 24px',
-          padding: '14px 18px',
-          background: '#fff5f5',
-          border: '1.5px solid #fca5a5',
-          borderRadius: 10,
-        }}>
-          <div style={{ fontWeight: 700, color: '#991b1b', fontSize: 14, marginBottom: 8 }}>
-            ⚠️ Найдено конфликтов: {conflicts.length}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div className={styles.conflictBanner}>
+          <span className={styles.conflictIcon}>⚠</span>
+          <span className={styles.conflictTitle}>Конфликтов: {conflicts.length}</span>
+          <div className={styles.conflictList}>
             {conflicts.map((c, i) => {
               const emp = employees.find(e => e.id === c.employeeId)
               return (
-                <div key={i} style={{ fontSize: 13, color: '#7f1d1d' }}>
-                  • {emp?.lastName} {emp?.firstName} — {c.workDate}: {c.message}
-                </div>
+                <span key={i} className={styles.conflictItem}>
+                  {emp?.lastName} {emp?.firstName} · {c.workDate}: {c.message}
+                </span>
               )
             })}
           </div>
         </div>
       )}
+
+      {/* ── Legend ── */}
+      <div className={styles.legendRow}>
+        {Object.entries(SHIFTS).filter(([k]) => k !== '').map(([key, s]) => (
+          <div key={key} className={styles.legendItem}>
+            <span className={styles.legendChip} style={{ background: s.bg, color: s.text }}>
+              {s.label}
+            </span>
+            <span className={styles.legendDesc}>{s.desc}</span>
+          </div>
+        ))}
+      </div>
 
       {/* ── Table ── */}
       {employees.length === 0 ? (
@@ -379,106 +382,124 @@ export default function ScheduleDetail() {
           <p>Нет сотрудников в этом графике</p>
         </div>
       ) : (
-        <div className={styles.tableWrapper}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th className={styles.thEmployee}>Сотрудник</th>
-                {days.map(d => {
-                  const date = new Date(schedule.year, schedule.month - 1, d)
-                  const isWeekend = date.getDay() === 0 || date.getDay() === 6
+        <div className={styles.tableOuter}>
+          <div className={styles.tableScroll}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th className={styles.thEmp}>Сотрудник</th>
+                  {days.map(d => {
+                    const date = new Date(schedule.year, schedule.month - 1, d)
+                    const dow = date.getDay()
+                    const isWknd = dow === 0 || dow === 6
+                    const isToday =
+                      new Date().getDate() === d &&
+                      new Date().getMonth() + 1 === schedule.month &&
+                      new Date().getFullYear() === schedule.year
+                    const working = getDayStats(d)
+                    return (
+                      <th
+                        key={d}
+                        className={[
+                          styles.thDay,
+                          isWknd ? styles.thDayWeekend : '',
+                          isToday ? styles.thDayToday : '',
+                          hoveredCol === d ? styles.thDayHovered : '',
+                        ].join(' ')}
+                        onMouseEnter={() => setHoveredCol(d)}
+                        onMouseLeave={() => setHoveredCol(null)}
+                      >
+                        <div className={styles.thDayNum}>{d}</div>
+                        <div className={styles.thDayName}>{DAY_NAMES[dow]}</div>
+                        {!isWknd && (
+                          <div className={styles.thDayWorking} title={`${working} работают`}>
+                            {working}
+                          </div>
+                        )}
+                      </th>
+                    )
+                  })}
+                  <th className={styles.thTotal}>Р.Д.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {employees.map((emp, rowIdx) => {
+                  const workDays = getWorkDays(emp.id)
+                  const avatarColor = AVATAR_COLORS[emp.id % AVATAR_COLORS.length]
                   return (
-                    <th key={d} className={`${styles.thDay} ${isWeekend ? styles.thWeekend : ''}`}>
-                      <div className={styles.thDayNum}>{d}</div>
-                      <div className={styles.thDayName}>{DAY_NAMES[date.getDay()]}</div>
-                    </th>
+                    <tr key={emp.id} className={rowIdx % 2 === 1 ? styles.rowAlt : styles.row}>
+                      <td className={styles.tdEmp}>
+                        <div
+                          className={styles.avatar}
+                          style={{ background: avatarColor.bg, color: avatarColor.text }}
+                        >
+                          {getInitials(emp.firstName, emp.lastName)}
+                        </div>
+                        <div className={styles.empInfo}>
+                          <span className={styles.empName}>{emp.lastName} {emp.firstName}</span>
+                          {emp.position && <span className={styles.empRole}>{emp.position}</span>}
+                        </div>
+                      </td>
+                      {days.map(d => {
+                        const key: CellKey = `${emp.id}_${getDateStr(d)}`
+                        const value = cells[key] || ''
+                        const date = new Date(schedule.year, schedule.month - 1, d)
+                        const dow = date.getDay()
+                        const isWknd = dow === 0 || dow === 6
+                        const shift = SHIFTS[value] || SHIFTS['']
+                        const conflict = getCellConflict(emp.id, getDateStr(d))
+                        const isHoveredCol = hoveredCol === d
+
+                        return (
+                          <td
+                            key={d}
+                            className={[
+                              styles.tdCell,
+                              isWknd ? styles.tdCellWeekend : '',
+                              conflict ? styles.tdCellConflict : '',
+                              isHoveredCol ? styles.tdCellHovered : '',
+                            ].join(' ')}
+                            title={conflict?.message || shift.desc}
+                          >
+                            {canEdit ? (
+                              <select
+                                className={styles.cellSelect}
+                                style={{ background: conflict ? '#FEE2E2' : shift.bg, color: conflict ? '#991B1B' : shift.text }}
+                                value={value}
+                                onChange={e => handleCellChange(emp.id, d, e.target.value)}
+                              >
+                                <option value="">—</option>
+                                <option value="9-18">9–18 · Дневная</option>
+                                <option value="9-21">9–21 · Длинная</option>
+                                <option value="8-17">8–17 · Ранняя</option>
+                                <option value="8-20">8–20 · Длинная ранняя</option>
+                                <option value="В">В · Выходной</option>
+                                <option value="О">О · Отпуск</option>
+                                <option value="Б">Б · Больничный</option>
+                                <option value="БС">БС · Без содержания</option>
+                                <option value="К">К · Командировка</option>
+                                <option value="Д">Д · Декрет</option>
+                              </select>
+                            ) : (
+                              <div
+                                className={styles.cellChip}
+                                style={{ background: value ? shift.bg : 'transparent', color: shift.text }}
+                              >
+                                {shift.label}
+                              </div>
+                            )}
+                          </td>
+                        )
+                      })}
+                      <td className={styles.tdTotal}>
+                        <span className={styles.totalBadge}>{workDays}</span>
+                      </td>
+                    </tr>
                   )
                 })}
-                <th className={styles.thTotal}>Итого</th>
-              </tr>
-            </thead>
-            <tbody>
-              {employees.map((emp, rowIdx) => {
-                const workDays = days.filter(d => {
-                  const v = cells[`${emp.id}_${getDateStr(d)}`] || ''
-                  return v !== '' && v !== 'В' && v !== 'О' && v !== 'Б' && v !== 'БС'
-                }).length
-                return (
-                  <tr key={emp.id} className={`${styles.row} ${rowIdx % 2 === 1 ? styles.rowAlt : ''}`}>
-                    <td className={styles.tdEmployee}>
-                      <div className={styles.empAvatar}>
-                        {emp.lastName[0]}{emp.firstName[0]}
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: 600 }}>{emp.lastName} {emp.firstName}</div>
-                        {emp.position && (
-                          <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 400 }}>{emp.position}</div>
-                        )}
-                      </div>
-                    </td>
-                    {days.map(d => {
-                      const key: CellKey = `${emp.id}_${getDateStr(d)}`
-                      const value = cells[key] || ''
-                      const date = new Date(schedule.year, schedule.month - 1, d)
-                      const isWeekend = date.getDay() === 0 || date.getDay() === 6
-                      const shift = SHIFT_COLORS[value] || SHIFT_COLORS['']
-                      const conflict = getCellConflict(emp.id, getDateStr(d))
-
-                      return (
-                        <td
-                          key={d}
-                          className={`${styles.tdCell} ${isWeekend ? styles.tdWeekend : ''}`}
-                          style={conflict ? {
-                            background: '#fee2e2',
-                            outline: '2px solid #ef4444',
-                            position: 'relative'
-                          } : {}}
-                          title={conflict?.message}
-                        >
-                          {conflict && (
-                            <span style={{
-                              position: 'absolute', top: 1, right: 1,
-                              fontSize: 8, lineHeight: 1
-                            }}>⚠️</span>
-                          )}
-                          {canEdit ? (
-                            <select
-                              className={styles.cellSelect}
-                              style={{ background: conflict ? '#fecaca' : shift.bg, color: conflict ? '#991b1b' : shift.color }}
-                              value={value}
-                              onChange={e => handleCellChange(emp.id, d, e.target.value)}
-                            >
-                              <option value="">—</option>
-                              <option value="9-18">9-18</option>
-                              <option value="9-21">9-21</option>
-                              <option value="8-17">8-17</option>
-                              <option value="8-20">8-20</option>
-                              <option value="В">В — Выходной</option>
-                              <option value="О">О — Отпуск</option>
-                              <option value="Б">Б — Больничный</option>
-                              <option value="БС">БС — Без содержания</option>
-                              <option value="К">К — Командировка</option>
-                              <option value="Д">Д — Декрет</option>
-                            </select>
-                          ) : (
-                            <span
-                              className={styles.cellView}
-                              style={{ background: value ? shift.bg : 'transparent', color: shift.color }}
-                            >
-                              {shift.label}
-                            </span>
-                          )}
-                        </td>
-                      )
-                    })}
-                    <td className={styles.tdTotal}>
-                      <span className={styles.totalChip}>{workDays}</span>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -486,10 +507,9 @@ export default function ScheduleDetail() {
       {showRevisionModal && (
         <div className={styles.overlay} onClick={() => setShowRevisionModal(false)}>
           <div className={styles.modal} onClick={e => e.stopPropagation()}>
-            <div className={styles.modalIcon}>🔄</div>
             <h2 className={styles.modalTitle}>Вернуть на доработку</h2>
-            <p className={styles.modalSub}>Укажите причину — менеджер увидит её в карточке графика</p>
-            <label className={styles.modalLabel}>Комментарий *</label>
+            <p className={styles.modalSub}>Опишите что нужно исправить — менеджер увидит ваш комментарий</p>
+            <label className={styles.modalLabel}>Комментарий</label>
             <textarea
               className={styles.textarea}
               value={revisionComment}
@@ -498,12 +518,12 @@ export default function ScheduleDetail() {
               rows={4}
               autoFocus
             />
-            <div className={styles.modalActions}>
-              <button className={`${styles.btn} ${styles.btnOutline}`}
+            <div className={styles.modalFooter}>
+              <button className={`${styles.btn} ${styles.btnCancel}`}
                 onClick={() => { setShowRevisionModal(false); setRevisionComment('') }}>
                 Отмена
               </button>
-              <button className={`${styles.btn} ${styles.btnWarning}`}
+              <button className={`${styles.btn} ${styles.btnRevision}`}
                 onClick={doRevision}
                 disabled={actionLoading === 'revision' || !revisionComment.trim()}>
                 {actionLoading === 'revision' ? 'Отправка...' : 'Отправить'}

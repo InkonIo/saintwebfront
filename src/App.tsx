@@ -8,6 +8,7 @@ import ScheduleDetail from './pages/schedules/ScheduleDetail'
 import Audit from './pages/audit/audit'
 import Employees from './pages/employees/Employees'
 import MySchedule from './pages/my-schedule/MySchedule'
+import AiAgent from './ai-agent/AiAgent'
 import type { JSX } from 'react'
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
@@ -38,6 +39,7 @@ function App() {
         <Route path="/my-schedule" element={<EmployeeRoute><MySchedule /></EmployeeRoute>} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
+      <AiAgent />
     </BrowserRouter>
   )
 }
