@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Login from './pages/login/Login'
 import Dashboard from './pages/dashboard/Dashboard'
 import Branches from './pages/branches/Branches'
@@ -24,9 +24,13 @@ function EmployeeRoute({ children }: { children: JSX.Element }) {
   return children
 }
 
-function App() {
+function AppContent() {
+  const location = useLocation()
+  const token = localStorage.getItem('token')
+  const showAi = !!token && location.pathname !== '/login'
+
   return (
-    <BrowserRouter>
+    <>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
@@ -39,7 +43,15 @@ function App() {
         <Route path="/my-schedule" element={<EmployeeRoute><MySchedule /></EmployeeRoute>} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
-      <AiAgent />
+      {showAi && <AiAgent />}
+    </>
+  )
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
     </BrowserRouter>
   )
 }
