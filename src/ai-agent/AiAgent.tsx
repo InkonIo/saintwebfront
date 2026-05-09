@@ -22,13 +22,14 @@ interface Message {
   role: 'user' | 'ai' | 'system'
   text: string
   timestamp: Date
-  wizard?: WizardStep   // если есть — рендерим Step-компонент вместо текста
+  wizard?: WizardStep
 }
 
 interface WizardCtx {
   branchId?: number
   templateId?: number
   scheduleId?: number
+  employeesDone?: string
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -55,10 +56,10 @@ export default function AiAgent() {
   const location = useLocation()
   const role = localStorage.getItem('role') || ''
 
-  const [open, setOpen]       = useState(false)
+  const [open, setOpen]         = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput]     = useState('')
-  const [loading, setLoading] = useState(false)
+  const [input, setInput]       = useState('')
+  const [loading, setLoading]   = useState(false)
   const [wizardCtx, setWizardCtx] = useState<WizardCtx>({})
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -83,7 +84,6 @@ export default function AiAgent() {
     }])
   }
 
-  // заменяет wizard-карточку на обычный текст (после confirm/cancel)
   const resolveWizard = (id: string, text: string) => {
     setMessages(prev => prev.map(m =>
       m.id === id ? { ...m, wizard: undefined, text } : m
@@ -97,7 +97,8 @@ export default function AiAgent() {
 
   // ─── SSE stream ──────────────────────────────────────────────────────────
 
-  const sendMessage = async (text: string) => {
+  // FIX: принимает явный ctxOverride чтобы не зависеть от асинхронного setState
+  const sendMessageWithCtx = async (text: string, ctxOverride: WizardCtx) => {
     if (!text.trim() || loading) return
     addMsg('user', text)
     setInput('')
@@ -123,7 +124,7 @@ export default function AiAgent() {
           message: text,
           scheduleId,
           currentPage: location.pathname,
-          wizardCtx,  // передаём уже созданные id (branchId, templateId и т.д.)
+          wizardCtx: ctxOverride,  // используем явно переданный ctx
         }),
       })
 
@@ -191,15 +192,10 @@ export default function AiAgent() {
               } catch { /* ignore */ }
               break
 
-            // ── WIZARD EVENT ─────────────────────────────────────────────
-            // Бэк шлёт:  event: wizard
-            //            data: {"type":"branch","data":{"name":"Москва","address":"ул. Ленина 1"}}
             case 'wizard': {
               try {
                 const w = JSON.parse(data) as WizardStep
-                // удаляем placeholder-сообщение стриминга
                 setMessages(prev => prev.filter(m => m.id !== streamId))
-                // добавляем сообщение с wizard-карточкой
                 addMsg('ai', '', w)
               } catch { /* ignore */ }
               break
@@ -224,6 +220,9 @@ export default function AiAgent() {
     }
   }
 
+  // Обычный sendMessage — просто берёт текущий wizardCtx из state
+  const sendMessage = (text: string) => sendMessageWithCtx(text, wizardCtx)
+
   // ─── Wizard handlers ──────────────────────────────────────────────────────
 
   const handleConfirmBranch = async (msgId: string, draft: BranchDraft) => {
@@ -238,9 +237,15 @@ export default function AiAgent() {
       })
       if (!res.ok) throw new Error(await res.text())
       const created = await res.json()
-      setWizardCtx(prev => ({ ...prev, branchId: created.id }))
+
+      // FIX: строим новый ctx локально и сразу передаём — не ждём setState
+      const newCtx: WizardCtx = { ...wizardCtx, branchId: created.id }
+      setWizardCtx(newCtx)
       resolveWizard(msgId, `✅ Филиал "${draft.name}" создан`)
-      await sendMessage(`Филиал создан, id=${created.id}. Теперь создай шаблон для этого филиала.`)
+      await sendMessageWithCtx(
+        `Филиал создан, id=${created.id}. Теперь создай шаблон для этого филиала.`,
+        newCtx
+      )
     } catch (e) {
       resolveWizard(msgId, `❌ ${e instanceof Error ? e.message : 'Ошибка создания филиала'}`)
       setLoading(false)
@@ -259,9 +264,15 @@ export default function AiAgent() {
       })
       if (!res.ok) throw new Error(await res.text())
       const created = await res.json()
-      setWizardCtx(prev => ({ ...prev, templateId: created.id }))
+
+      // FIX: строим новый ctx локально и сразу передаём — не ждём setState
+      const newCtx: WizardCtx = { ...wizardCtx, templateId: created.id }
+      setWizardCtx(newCtx)
       resolveWizard(msgId, `✅ Шаблон "${draft.name}" создан`)
-      await sendMessage(`Шаблон создан, id=${created.id}. Теперь добавь сотрудников в филиал id=${wizardCtx.branchId}.`)
+      await sendMessageWithCtx(
+        `Шаблон создан, id=${created.id}. Теперь добавь сотрудников в филиал id=${wizardCtx.branchId}.`,
+        newCtx
+      )
     } catch (e) {
       resolveWizard(msgId, `❌ ${e instanceof Error ? e.message : 'Ошибка создания шаблона'}`)
       setLoading(false)
@@ -279,9 +290,14 @@ export default function AiAgent() {
         body: JSON.stringify({ employees: drafts, branchId: wizardCtx.branchId }),
       })
       if (!res.ok) throw new Error(await res.text())
+
+      // FIX: строим новый ctx локально и сразу передаём — не ждём setState
+      const newCtx: WizardCtx = { ...wizardCtx, employeesDone: 'true' }
+      setWizardCtx(newCtx)
       resolveWizard(msgId, `✅ ${drafts.length} сотрудников добавлено`)
-      await sendMessage(
-        `Сотрудники добавлены. Теперь создай график для филиала id=${wizardCtx.branchId}, шаблон id=${wizardCtx.templateId}.`
+      await sendMessageWithCtx(
+        `Сотрудники добавлены. Теперь создай график для филиала id=${wizardCtx.branchId}, шаблон id=${wizardCtx.templateId}.`,
+        newCtx
       )
     } catch (e) {
       resolveWizard(msgId, `❌ ${e instanceof Error ? e.message : 'Ошибка создания сотрудников'}`)
@@ -307,7 +323,6 @@ export default function AiAgent() {
       const created = await res.json()
       setWizardCtx(prev => ({ ...prev, scheduleId: created.id }))
       resolveWizard(msgId, `✅ График #${created.id} создан`)
-      // показываем карточку отправки на согласование
       addMsg('ai', '', { type: 'submit', data: { scheduleId: created.id } })
     } catch (e) {
       resolveWizard(msgId, `❌ ${e instanceof Error ? e.message : 'Ошибка создания графика'}`)
